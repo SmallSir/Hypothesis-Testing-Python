@@ -73,3 +73,63 @@ def get_recession_bottom():
     bottom = gdplev['GDP'].min()
     bottom_index = gdplev[gdplev['GDP'] == bottom].index.tolist()[0]-start_index
     return gdplev.iloc[bottom_index]['Quarter']
+
+def new_col_name():
+    '''
+    该函数主要是新的行名
+    '''
+    years = list(range(2000,2017))
+    quars = ['q1','q2','q3','q4']
+    quars_year = []
+    for i in years:
+        for x in quars:
+            quars_year.append((str(i) + x))
+    return quars_year[:67] #按照要求返回2000q1到2016q3的值
+def convert_housing_data_to_quarters():
+    '''
+    该函数是将住房数据转换为并其作为平均值返回，只要2000q1到20016q3的列，同时只留下
+    国家和地区名称
+    其中平均值按照每个季度所包括的月份获得
+    '''
+    data = pd.read_csv('City_Zhvi_AllHomes.csv')
+    data.drop(['Metro', 'CountyName', 'RegionID', 'SizeRank'], axis=1, inplace=True)
+    data['State'] = data['State'].map(states)
+    data.set_index(['State','RegionName'],inplace=True)
+    col = list(data.columns)
+    col = col[0:45] #删除多于不需要的数据
+    data.drop(col,axis=1,inplace = True)
+    qs = [list(data.columns)[x:x + 3] for x in range(0, len(list(data.columns)), 3)]#获得每个季度所包括的月份
+    column_names = new_col_name()
+    for col, q in zip(column_names, qs):
+        data[col] = data[q].mean(axis=1) #季度与所设计的月份对应
+
+    data = data[column_names]
+    return data
+
+def run_ttest():
+    data = convert_housing_data_to_quarters().copy() #获得每个季度的平均值
+    data = data.loc[:, get_reccession_start():get_recession_bottom()]#获取在经济衰退至底部的平均值
+    data = data.reset_index()
+    def price_ratio(row):
+        return (row[get_reccession_start()] - row[get_recession_bottom()]) / row[get_reccession_start()]
+    data['up&down'] = data.apply(price_ratio, axis=1)
+    uni_town = get_list_of_university_towns()['RegionName']
+    uni_town = set(uni_town)
+    def is_uni_town(row):
+        if row['RegionName'] in uni_town:
+            return 1
+        else:
+            return 0
+    data['is_uni'] = data.apply(is_uni_town, axis=1)
+    not_uni = data[data['is_uni'] == 0].loc[:, 'up&down'].dropna()
+    is_uni = data[data['is_uni'] == 1].loc[:, 'up&down'].dropna()
+    def better():
+        if not_uni.mean() < is_uni.mean():
+            return 'non-university town'
+        else:
+            return 'university town'
+    p_val = list(ttest_ind(not_uni, is_uni))[1]
+    result = (True, p_val, better())
+    return result
+if __name__ == '__main__':
+    print(run_ttest())
