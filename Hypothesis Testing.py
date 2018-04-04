@@ -24,6 +24,8 @@ def get_list_of_university_towns():
             state_town.append([state,town])
     df = pd.DataFrame(state_town,columns=['State','RegionName'])
     return df
+
+
 def get_reccession_start():
     '''
     此函数根据资料计算经济衰退开始的时间，返回的值为年限以及季度
@@ -36,6 +38,8 @@ def get_reccession_start():
     for i in range(2,len(gdplev)):
         if gdplev.iloc[i-2][1] > gdplev.iloc[i-1][1] and gdplev.iloc[i-1][1] > gdplev.iloc[i][1]:
             return gdplev.iloc[i-2][0]
+
+
 def get_recession_end():
     '''
     该函数根据资料计算经济衰退结束的时间，返回的值为年限以及季度
@@ -51,3 +55,21 @@ def get_recession_end():
     for i in range(2,len(gdplev)):
         if gdplev.iloc[i-2][1] < gdplev.iloc[i-1][1] and gdplev.iloc[i-1][1] < gdplev.iloc[i][1]:
             return gdplev.iloc[i][0]
+
+
+def get_recession_bottom():
+    '''
+    此函数根据资料计算出在经济衰退期间最低点是什么时候
+    '''
+    gdplev = pd.ExcelFile('gdplev.xls')
+    gdplev = gdplev.parse("Sheet1", skiprows=219)
+    gdplev = gdplev[['1999q4', 9926.1]]
+    gdplev.columns = ['Quarter','GDP']
+    start = get_reccession_start()
+    start_index  = gdplev[gdplev['Quarter'] == start].index.tolist()[0]
+    end = get_recession_end()
+    end_index  = gdplev[gdplev['Quarter'] == end].index.tolist()[0]
+    gdplev = gdplev[start_index:end_index+1]
+    bottom = gdplev['GDP'].min()
+    bottom_index = gdplev[gdplev['GDP'] == bottom].index.tolist()[0]-start_index
+    return gdplev.iloc[bottom_index]['Quarter']
